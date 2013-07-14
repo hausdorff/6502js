@@ -88,3 +88,16 @@
   font-size: 12px;
   color: #444;
 }
+
+.output {
+  margin: 0;
+  padding: 6px;
+  border: 1px solid #999;
+  background-color: #eee;
+  overflow: auto;
+  width: 587px;
+  height: 100px;
+  text-align: left;
+  font-size: 12px;
+  color: #444;
+}

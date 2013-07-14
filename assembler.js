@@ -210,7 +210,7 @@ function SimulatorWidget(node) {
   }
 
   function Memory() {
-    var memArray = new Array(0x600);
+    var memArray = new Array(0xffff);
 
     function set(addr, val) {
       return memArray[addr] = val;
@@ -228,15 +228,18 @@ function SimulatorWidget(node) {
 
     function storeByte(addr, value) {
       set(addr, value & 0xff);
-      if ((addr >= 0x200) && (addr <= 0x5ff)) {
-        display.updatePixel(addr);
+      if (addr == 0xC010) {
+        storeByte(0xC000, 0x01); // store not ready
       }
+      /*if ((addr >= 0x200) && (addr <= 0x5ff)) {
+        display.updatePixel(addr);
+      }*/
     }
 
     // storeKeypress() - Store keycode in ZP $ff
     function storeKeypress(e) {
       value = e.which;
-      memory.storeByte(0xff, value);
+      memory.storeByte(0xc000, value | 0x80);
     }
 
     function format(start, length) {
@@ -272,7 +275,7 @@ function SimulatorWidget(node) {
     var regX = 0;
     var regY = 0;
     var regP = 0;
-    var regPC = 0x600;
+    var regPC = 0x1D00;
     var regSP = 0xff;
     var codeRunning = false;
     var debug = false;
@@ -605,9 +608,13 @@ function SimulatorWidget(node) {
       i20: function () {
         var addr = popWord();
         var currAddr = regPC - 1;
-        stackPush(((currAddr >> 8) & 0xff));
-        stackPush((currAddr & 0xff));
-        regPC = addr;
+        if (addr == 0xFDF0) {
+          output(String.fromCharCode(regA));
+        } else {
+          stackPush(((currAddr >> 8) & 0xff));
+          stackPush((currAddr & 0xff));
+          regPC = addr;
+        }
         //JSR
       },
 
@@ -1495,6 +1502,7 @@ function SimulatorWidget(node) {
 
     // runBinary() - Executes the assembled code
     function runBinary() {
+      clearAll();
       if (codeRunning) {
         // Switch OFF everything
         stop();
@@ -1619,11 +1627,11 @@ function SimulatorWidget(node) {
     // reset() - Reset CPU and memory.
     function reset() {
       display.reset();
-      for (var i = 0; i < 0x600; i++) { // clear ZP, stack and screen
+      for (var i = 0; i < 0xffff; i++) { // clear ZP, stack and screen
         memory.set(i, 0x00);
       }
       regA = regX = regY = 0;
-      regPC = 0x600;
+      regPC = 0x1D00;
       regSP = 0xff;
       regP = 0x30;
       updateDebugInfo();
@@ -1825,7 +1833,7 @@ function SimulatorWidget(node) {
     function assembleCode() {
       simulator.reset();
       labels.reset();
-      defaultCodePC = 0x600;
+      defaultCodePC = 0x1D00;
       $node.find('.messages code').empty();
 
       var code = $node.find('.code').val();
@@ -1835,7 +1843,7 @@ function SimulatorWidget(node) {
 
       message("Indexing labels..");
 
-      defaultCodePC = 0x600;
+      defaultCodePC = 0x1D00;
 
       if (!labels.indexLines(lines)) {
         return false;
@@ -1843,7 +1851,7 @@ function SimulatorWidget(node) {
 
       labels.displayMessage();
 
-      defaultCodePC = 0x600;
+      defaultCodePC = 0x1D00;
       message("Assembling code ...");
 
       codeLen = 0;
@@ -1996,11 +2004,11 @@ function SimulatorWidget(node) {
       }
       if (addr === -1) { pushWord(0x00); return false; }
       pushByte(opcode);
-      if (addr < (defaultCodePC - 0x600)) {  // Backwards?
-        pushByte((0xff - ((defaultCodePC - 0x600) - addr)) & 0xff);
+      if (addr < (defaultCodePC - 0x1D00)) {  // Backwards?
+        pushByte((0xff - ((defaultCodePC - 0x1D00) - addr)) & 0xff);
         return true;
       }
-      pushByte((addr - (defaultCodePC - 0x600) - 1) & 0xff);
+      pushByte((addr - (defaultCodePC - 0x1D00) - 1) & 0xff);
       return true;
     }
 
@@ -2287,7 +2295,7 @@ function SimulatorWidget(node) {
 
     // hexDump() - Dump binary as hex to new window
     function hexdump() {
-      openPopup(memory.format(0x600, codeLen), 'Hexdump');
+      openPopup(memory.format(0xffff, codeLen), 'Hexdump');
     }
 
     // TODO: Create separate disassembler object?
@@ -2420,7 +2428,7 @@ function SimulatorWidget(node) {
     }
 
     function disassemble() {
-      var startAddress = 0x600;
+      var startAddress = 0x1D00;
       var currentAddress = startAddress;
       var endAddress = startAddress + codeLen;
       var instructions = [];
@@ -2482,6 +2490,13 @@ function SimulatorWidget(node) {
     $node.find('.messages code').append(text + '\n').scrollTop(10000);
   }
 
+  function output(chr) {
+    $node.find('.output code').append(chr).scrollTop(10000);
+  }
+
+  function clearAll() {
+    $node.find('.output code').text("");
+  }
 
   initialize();
 }
